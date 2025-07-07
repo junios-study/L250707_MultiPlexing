@@ -11,7 +11,7 @@ int main()
 {
 	WSAData wsaData;
 	WSAStartup(MAKEWORD(2, 2), &wsaData);
-	
+
 	SOCKET ListenSocket = socket(AF_INET, SOCK_STREAM, 0);
 
 	SOCKADDR_IN ListenSocketAddr;
@@ -20,7 +20,7 @@ int main()
 	ListenSocketAddr.sin_addr.s_addr = inet_addr("127.0.0.1");
 	ListenSocketAddr.sin_port = htons(32000);
 	bind(ListenSocket, (SOCKADDR*)&ListenSocketAddr, sizeof(ListenSocketAddr));
-	
+
 	listen(ListenSocket, 5);
 
 	fd_set ReadSockets;
@@ -49,7 +49,7 @@ int main()
 		//네트워크 작업
 		else
 		{
-			for (int i = 0; i < ReadSockets.fd_count; ++i)
+			for (int i = 0; i < (int)ReadSockets.fd_count; ++i)
 			{
 				if (FD_ISSET(ReadSockets.fd_array[i], &ReadSocketCopys))
 				{
@@ -75,7 +75,13 @@ int main()
 						}
 						else
 						{
-							send(ReadSockets.fd_array[i], RecvBuffer, 1024, 0);
+							for (int j = 0; j < (int)ReadSockets.fd_count; ++j)
+							{
+								if (ReadSockets.fd_array[j] != ListenSocket)
+								{
+									send(ReadSockets.fd_array[j], RecvBuffer, 1024, 0);
+								}
+							}
 						}
 					}
 				}
