@@ -67,14 +67,16 @@ int main()
 						int RecvBytes = recv(ReadSockets.fd_array[i], RecvBuffer, 1024, 0);
 						if (RecvBytes <= 0)
 						{
-							FD_CLR(ReadSockets.fd_array[i], &ReadSockets);
 							closesocket(ReadSockets.fd_array[i]);
 
-							std::cout << "Disconnect" << std::endl;
+							FD_CLR(ReadSockets.fd_array[i], &ReadSockets);
 
-							break;
+							std::cout << "Disconnect" << std::endl;
 						}
-						send(ReadSockets.fd_array[i], RecvBuffer, 1024, 0);
+						else
+						{
+							send(ReadSockets.fd_array[i], RecvBuffer, 1024, 0);
+						}
 					}
 				}
 			}
