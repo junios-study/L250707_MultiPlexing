@@ -1,5 +1,7 @@
 #define _WINSOCK_DEPRECATED_NO_WARNINGS
 
+#define FD_SETSIZE      100
+
 #include <iostream>
 #include <WinSock2.h>
 
@@ -21,45 +23,64 @@ int main()
 	
 	listen(ListenSocket, 5);
 
+	fd_set ReadSockets;
+	FD_ZERO(&ReadSockets);
+	FD_SET(ListenSocket, &ReadSockets);
+
 	while (true)
 	{
 		//[][][][][]
-		fd_set ReadSockets;
-		FD_ZERO(&ReadSockets);
-		FD_SET(ListenSocket, &ReadSockets);
+		fd_set ReadSocketCopys;
+		//원본은 가지고 있고 복제본을 줌
+		ReadSocketCopys = ReadSockets;
+
 		struct timeval Timeout;
 		Timeout.tv_sec = 0;
 		Timeout.tv_usec = 1000;
+
 		//polling
-		int ChangeSocketCount = select(0, &ReadSockets, 0, 0, &Timeout);
+		int ChangeSocketCount = select(0, &ReadSocketCopys, NULL, NULL, &Timeout);
 		if (ChangeSocketCount <= 0)
 		{
 			//다른 서버 작업
-			std::cout << "서버 작업해야지" << std::endl;
+			//std::cout << "서버 작업해야지" << std::endl;
 			continue;
 		}
 		//네트워크 작업
 		else
 		{
-			SOCKADDR_IN ClientSocketAddr;
-			int ClientSocketAddrSize = sizeof(ClientSocketAddr);
-			SOCKET ClientSocket = accept(ListenSocket, (SOCKADDR*)&ClientSocketAddr, &ClientSocketAddrSize);
-
-			while (true)
+			for (int i = 0; i < ReadSockets.fd_count; ++i)
 			{
-				char RecvBuffer[1024] = {};
-				int RecvBytes = recv(ClientSocket, RecvBuffer, 1024, 0);
-				if (RecvBytes <= 0)
+				if (FD_ISSET(ReadSockets.fd_array[i], &ReadSocketCopys))
 				{
-					std::cout << "Disconnect" << std::endl;
-					break;
-				}
-				send(ClientSocket, RecvBuffer, 1024, 0);
-			}
+					if (ReadSockets.fd_array[i] == ListenSocket)
+					{
+						SOCKADDR_IN ClientSocketAddr;
+						int ClientSocketAddrSize = sizeof(ClientSocketAddr);
+						SOCKET ClientSocket = accept(ListenSocket, (SOCKADDR*)&ClientSocketAddr, &ClientSocketAddrSize);
+						FD_SET(ClientSocket, &ReadSockets);
+						std::cout << "Connect" << std::endl;
+					}
+					else
+					{
+						char RecvBuffer[1024] = {};
+						int RecvBytes = recv(ReadSockets.fd_array[i], RecvBuffer, 1024, 0);
+						if (RecvBytes <= 0)
+						{
+							FD_CLR(ReadSockets.fd_array[i], &ReadSockets);
+							closesocket(ReadSockets.fd_array[i]);
 
-			closesocket(ClientSocket);
+							std::cout << "Disconnect" << std::endl;
+
+							break;
+						}
+						send(ReadSockets.fd_array[i], RecvBuffer, 1024, 0);
+					}
+				}
+			}
 		}
 	}
+
 	closesocket(ListenSocket);
 
 	WSACleanup();
